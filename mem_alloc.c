@@ -1,10 +1,15 @@
 #include <stdint.h>
 #include <stdlib.h>
 #include <string.h>
-#include <pthread.h>
 #include <sys/mman.h>
 
 #include "mem_alloc.h"
+
+#if defined(_REENTRANT)
+#include <pthread.h>
+#define NUM_THREADS 8
+#define ALLOCS_PER_THREAD 5000
+#endif
 
 #define RBTREE_BLACK   0
 #define RBTREE_RED     1
@@ -83,9 +88,10 @@ typedef struct {
 
     mem_page *root;
     mem_head  free;
-
+#if defined(_REENTRANT)
     pthread_mutex_t lock;
     uint8_t         locked;
+#endif // _REENTRANT
 } mem_ctx;
 
 mem_ctx *ctx = NULL;
@@ -351,13 +357,17 @@ static __inline__ void mem_ctx_init() {
 }
 
 static __inline__ void mem_lock() {
+#if defined(_REENTRANT)
     if (ctx->locked) return;
     pthread_mutex_lock(&ctx->lock);
     ctx->locked = 1;
+#endif // _REENTRANT
 }
 static __inline__ void mem_unlock() {
+#if defined(_REENTRANT)
     ctx->locked = 0;
     pthread_mutex_unlock(&ctx->lock);
+#endif // _REENTRANT
 }
 
 void* mem_malloc(const uint64_t size) {
