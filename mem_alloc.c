@@ -353,19 +353,30 @@ static __inline__ void      mem_pool_free(mem_page *page, mem_pool *pool) {
 static __inline__ void mem_ctx_init() {
     ctx = MEM_MAP(sizeof(mem_ctx));
     memset(ctx, 0, sizeof(mem_ctx));
+
+#if defined(_REENTRANT)
+    pthread_mutexattr_t attr;
+    pthread_mutexattr_init(&attr);
+
+    pthread_mutexattr_settype(&attr, PTHREAD_MUTEX_RECURSIVE);
+
+    pthread_mutex_init(&ctx->lock, &attr);
+
+    pthread_mutexattr_destroy(&attr);
+#endif
 }
 
 static __inline__ void mem_lock() {
 #if defined(_REENTRANT)
-    if (locked) return;
-    pthread_mutex_lock(&lock);
-    locked = 1;
+    if (ctx->locked) return;
+    pthread_mutex_lock(&ctx->lock);
+    ctx->locked = 1;
 #endif // _REENTRANT
 }
 static __inline__ void mem_unlock() {
 #if defined(_REENTRANT)
-    locked = 0;
-    pthread_mutex_unlock(&lock);
+    ctx->locked = 0;
+    pthread_mutex_unlock(&ctx->lock);
 #endif // _REENTRANT
 }
 
@@ -373,8 +384,8 @@ void* mem_malloc(const uint64_t size) {
     const uint64_t _size = pool_size(size);
     if (_size > 12) return malloc(size);
 
-    mem_lock();
     if (ctx == NULL) mem_ctx_init();
+    mem_lock();
 
     void *ptr = NULL;
 
@@ -399,12 +410,12 @@ void* mem_calloc(const uint64_t num, const uint64_t size) {
     const uint64_t _size = pool_size(num * size);
     if (_size > 12) return calloc(num, size);
 
-    mem_lock();
     if (ctx == NULL) mem_ctx_init();
+    mem_lock();
     void *ptr = NULL;
 
     mem_pool *pool = ctx->pools[_size - 3].first;
-    if (pool == NULL || pool->alloc.fill >= POOL_SIZE) {
+    if (pool == NULL || pool->alloc.fill == POOL_SIZE) {
         pool = mem_pool_init();
         if (pool == NULL) goto end;
 
@@ -422,8 +433,8 @@ end:
     return ptr;
 }
 void* mem_realloc(void* old_ptr, const uint64_t new_size) {
-    mem_lock();
     if (ctx == NULL) mem_ctx_init();
+    mem_lock();
     void *ptr = NULL;
 
     mem_page *page = mem_page_find(old_ptr);
@@ -455,8 +466,8 @@ end:
     return ptr;
 }
 void  mem_free(void *ptr) {
-    mem_lock();
     if (ctx == NULL) return;
+    mem_lock();
 
     mem_page *page = mem_page_find(ptr);
     if (page == NULL) {
