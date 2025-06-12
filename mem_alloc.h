@@ -2,6 +2,7 @@
 #define MEMORY_ADAPTER_H
 
 #include <stdint.h>
+#include <stddef.h>
 
 extern void* mem_malloc(uint64_t size)
 __THROW __attribute_malloc__ __attribute_alloc_size__ ((1)) __wur;

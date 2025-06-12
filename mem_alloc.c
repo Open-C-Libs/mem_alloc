@@ -7,14 +7,12 @@
 
 #if defined(_REENTRANT)
 #include <pthread.h>
-#define NUM_THREADS 8
-#define ALLOCS_PER_THREAD 5000
 #endif
 
 #define RBTREE_BLACK   0
 #define RBTREE_RED     1
 
-#define POOL_SIZE 4096
+#define POOL_SIZE   4096
 #define POOL_NUMBER 64
 
 #define MEM_MAP(size) mmap(NULL, size, PROT_READ | PROT_WRITE, MAP_ANONYMOUS | MAP_PRIVATE, -1, 0)
@@ -88,13 +86,14 @@ typedef struct {
 
     mem_page *root;
     mem_head  free;
-#if defined(_REENTRANT)
-    pthread_mutex_t lock;
-    uint8_t         locked;
-#endif // _REENTRANT
 } mem_ctx;
 
 mem_ctx *ctx = NULL;
+
+#if defined(_REENTRANT)
+pthread_mutex_t lock;
+uint8_t         locked;
+#endif // _REENTRANT
 
 static mem_page *page_parents[256];
 static uint8_t   page_sides  [256];
@@ -358,15 +357,15 @@ static __inline__ void mem_ctx_init() {
 
 static __inline__ void mem_lock() {
 #if defined(_REENTRANT)
-    if (ctx->locked) return;
-    pthread_mutex_lock(&ctx->lock);
-    ctx->locked = 1;
+    if (locked) return;
+    pthread_mutex_lock(&lock);
+    locked = 1;
 #endif // _REENTRANT
 }
 static __inline__ void mem_unlock() {
 #if defined(_REENTRANT)
-    ctx->locked = 0;
-    pthread_mutex_unlock(&ctx->lock);
+    locked = 0;
+    pthread_mutex_unlock(&lock);
 #endif // _REENTRANT
 }
 
@@ -374,8 +373,8 @@ void* mem_malloc(const uint64_t size) {
     const uint64_t _size = pool_size(size);
     if (_size > 12) return malloc(size);
 
-    if (ctx == NULL) mem_ctx_init();
     mem_lock();
+    if (ctx == NULL) mem_ctx_init();
 
     void *ptr = NULL;
 
@@ -400,12 +399,12 @@ void* mem_calloc(const uint64_t num, const uint64_t size) {
     const uint64_t _size = pool_size(num * size);
     if (_size > 12) return calloc(num, size);
 
-    if (ctx == NULL) mem_ctx_init();
     mem_lock();
+    if (ctx == NULL) mem_ctx_init();
     void *ptr = NULL;
 
     mem_pool *pool = ctx->pools[_size - 3].first;
-    if (pool == NULL || pool->alloc.fill == POOL_SIZE) {
+    if (pool == NULL || pool->alloc.fill >= POOL_SIZE) {
         pool = mem_pool_init();
         if (pool == NULL) goto end;
 
@@ -423,8 +422,8 @@ end:
     return ptr;
 }
 void* mem_realloc(void* old_ptr, const uint64_t new_size) {
-    if (ctx == NULL) mem_ctx_init();
     mem_lock();
+    if (ctx == NULL) mem_ctx_init();
     void *ptr = NULL;
 
     mem_page *page = mem_page_find(old_ptr);
@@ -456,8 +455,8 @@ end:
     return ptr;
 }
 void  mem_free(void *ptr) {
-    if (ctx == NULL) return;
     mem_lock();
+    if (ctx == NULL) return;
 
     mem_page *page = mem_page_find(ptr);
     if (page == NULL) {
