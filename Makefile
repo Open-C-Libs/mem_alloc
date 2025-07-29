@@ -1,7 +1,7 @@
 CC = gcc
 CFLAGS = -O3 -O2 -Wall -Wextra -fPIC
 
-OBJ = mem_alloc.o
+OBJ = mem_utils.o
 
 # Threaded build
 ifeq ($(THREADS),1)
@@ -12,8 +12,8 @@ endif
 
 all: libmem_alloc.a
 
-mem_alloc.o: mem_alloc.c mem_alloc.h
-	$(CC) $(CFLAGS) -c mem_alloc.c
+mem_alloc.o: mem_utils.c mem_utils.h
+	$(CC) $(CFLAGS) -c mem_utils.c
 
 libmem_alloc.a: $(OBJ)
 	ar rcs $@ $^

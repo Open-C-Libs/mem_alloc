@@ -3,7 +3,7 @@
 #include <string.h>
 #include <sys/mman.h>
 
-#include "mem_alloc.h"
+#include "mem_utils.h"
 
 #if defined(_REENTRANT)
 #include <pthread.h>
