@@ -10,12 +10,12 @@ ifeq ($(THREADS),1)
     CFLAGS += -pthread
 endif
 
-all: libmem_alloc.a
+all: libmem_utils.a
 
-mem_alloc.o: mem_utils.c mem_utils.h
+mem_utils.o: mem_utils.c mem_utils.h
 	$(CC) $(CFLAGS) -c mem_utils.c
 
-libmem_alloc.a: $(OBJ)
+libmem_utils.a: $(OBJ)
 	ar rcs $@ $^
 
 clean:
